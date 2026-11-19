@@ -1,0 +1,49 @@
+services:
+  # Base de données PostgreSQL
+  database:
+    image: postgres:16-alpine
+    container_name: greenhouse_db
+    environment:
+      POSTGRES_DB: app
+      POSTGRES_USER: app
+      POSTGRES_PASSWORD: pass
+    ports:
+      - "5433:5432"
+    volumes:
+      - database_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U app -d app"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  # Backend Symfony (API Platform)
+  backend:
+    build:
+      context: ./greenhouse_api
+      dockerfile: Dockerfile
+    container_name: greenhouse_api
+    ports:
+      - "8000:80"
+    environment:
+      APP_ENV: dev
+      APP_SECRET: 7c5d4fb176b978ef99f36f6dca7b6462
+      DATABASE_URL: "postgresql://app:pass@database:5433/app?serverVersion=16&charset=utf8"
+      CORS_ALLOW_ORIGIN: '^https?://(localhost|127\.0\.0\.1)(:[0-9]+)?$'
+    depends_on:
+      database:
+        condition: service_healthy
+
+  # Frontend Flutter Web
+  frontend:
+    build:
+      context: ./FLUTTER
+      dockerfile: Dockerfile
+    container_name: greenhouse_front
+    ports:
+      - "8080:80"
+    depends_on:
+      - backend
+
+volumes:
+  database_data:
